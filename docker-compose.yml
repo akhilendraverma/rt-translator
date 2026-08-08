@@ -1,0 +1,57 @@
+# Microservices architecture from the proposal:
+# client --WS--> gateway --HTTP--> {asr, nmt, tts}, each independently scalable.
+# CPU-friendly defaults; override the env vars for GPU / heavier models.
+
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    environment:
+      ASR_URL: http://asr:8001
+      NMT_URL: http://nmt:8002
+      TTS_URL: http://tts:8003
+    depends_on:
+      - asr
+      - nmt
+      - tts
+
+  asr:
+    build: ./services/asr
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-tiny}       # base|small|large-v3 on stronger hardware
+      ASR_COMPUTE_TYPE: ${ASR_COMPUTE_TYPE:-int8}
+    expose:
+      - "8001"
+    # To scale horizontally (proposal: ~20 streams/pod): docker compose up --scale asr=3
+
+  nmt:
+    build: ./services/nmt
+    environment:
+      NMT_BACKEND: ${NMT_BACKEND:-opus}           # set to "seamless" on a GPU box
+    expose:
+      - "8002"
+
+  tts:
+    build: ./services/tts
+    environment:
+      TTS_BACKEND: ${TTS_BACKEND:-pyttsx3}         # set to "coqui" for XTTS-v2
+    expose:
+      - "8003"
+
+  # --- Optional monitoring, matching the proposal's Prometheus dashboard ---
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["monitoring"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles: ["monitoring"]
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

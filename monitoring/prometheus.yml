@@ -1,0 +1,17 @@
+# Scrapes the gateway and each service. Add a /metrics endpoint (e.g. via
+# prometheus-fastapi-instrumentator) to expose WER/BLEU/latency counters.
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: gateway
+    static_configs:
+      - targets: ["gateway:8000"]
+  - job_name: asr
+    static_configs:
+      - targets: ["asr:8001"]
+  - job_name: nmt
+    static_configs:
+      - targets: ["nmt:8002"]
+  - job_name: tts
+    static_configs:
+      - targets: ["tts:8003"]
