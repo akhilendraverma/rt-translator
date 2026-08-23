@@ -2,8 +2,6 @@
 
 A runnable scaffold for the capstone proposal *AI Real-Time Translator*. It implements the proposal's microservices architecture — a gateway that streams audio over WebSocket and fans out to independent **ASR → NMT → TTS** services — with **CPU-friendly model defaults** so the whole stack runs on a laptop. Every heavy GPU model named in the proposal has a documented upgrade switch.
 
-This is a **scaffold**, not a finished capstone: the structure, contracts, Docker wiring, tests, and evaluation harness are here so you can fill in each phase against a working skeleton.
-
 ## Architecture
 
 ```
