@@ -28,7 +28,8 @@
       <select id="source">
         <option value="auto">Detect</option><option value="en">English</option>
         <option value="es">Spanish</option><option value="fr">French</option>
-        <option value="de">German</option><option value="hi">Hindi</option>
+        <option value="de">German</option>
+        <option value="hi">Hindi</option>
       </select>
     </div>
     <div><label>To</label>
@@ -83,30 +84,70 @@ async function start(){
 
   media = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  // Record complete short clips instead of streaming fragments. MediaRecorder's
-  // timeslice mode emits headerless fragments after the first chunk, which the
-  // server can't decode. Instead we record a full clip, stop (which finalises a
-  // valid WebM file with a header), send it, then immediately start the next.
-  const CLIP_MS = 3000;   // ~3s clips: a good balance of latency vs. decodability
+  // Voice-activity detection: watch the mic level and only record while the user
+  // is actually speaking. This avoids transcribing silence (which backed up the
+  // queue and caused lag) and sizes each clip to the actual phrase, so results
+  // come back sooner. Each recorded clip is a complete, decodable WebM file.
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const srcNode = audioCtx.createMediaStreamSource(media);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  srcNode.connect(analyser);
+  const buf = new Uint8Array(analyser.fftSize);
 
-  function recordClip() {
-    if (!running || ws.readyState !== WebSocket.OPEN) return;
-    const chunks = [];
+  const SILENCE = 0.015;      // RMS threshold below which we treat audio as silence
+  const HANG_MS = 700;        // keep recording this long after speech stops (phrase end)
+  const MAX_MS = 8000;        // safety cap so one long utterance still gets sent
+  const MIN_MS = 400;         // ignore blips shorter than this
+
+  let speaking = false, chunks = [], clipStart = 0, lastVoice = 0;
+
+  function level() {
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+    return Math.sqrt(sum / buf.length);
+  }
+
+  function beginClip() {
+    chunks = [];
     recorder = new MediaRecorder(media, { mimeType: pickMime() });
     recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     recorder.onstop = async () => {
+      const dur = performance.now() - clipStart;
       const blob = new Blob(chunks, { type: recorder.mimeType });
-      if (blob.size > 0 && ws.readyState === WebSocket.OPEN) {
+      if (dur >= MIN_MS && blob.size > 0 && ws.readyState === WebSocket.OPEN) {
+        setStatus("Translating…");
         ws.send(await blobToB64(blob));
       }
-      if (running) recordClip();   // immediately record the next clip
     };
     recorder.start();
-    setTimeout(() => { if (recorder.state !== "inactive") recorder.stop(); }, CLIP_MS);
+    clipStart = performance.now();
+  }
+
+  function tick() {
+    if (!running) return;
+    const l = level();
+    const now = performance.now();
+    if (l > SILENCE) {
+      lastVoice = now;
+      if (!speaking) { speaking = true; beginClip(); setStatus("Listening…"); }
+    }
+    if (speaking) {
+      const since = now - lastVoice;
+      const dur = now - clipStart;
+      // Stop the clip when the user has been silent for HANG_MS, or we hit the cap.
+      if (since > HANG_MS || dur > MAX_MS) {
+        speaking = false;
+        if (recorder && recorder.state !== "inactive") recorder.stop();
+      }
+    }
+    requestAnimationFrame(tick);
   }
 
   running = true;
-  recordClip();
+  speaking = false;
+  tick();
   $("toggle").textContent = "■ Stop";
   $("toggle").classList.add("rec");
 }

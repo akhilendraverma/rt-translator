@@ -67,8 +67,11 @@ def transcribe(req: TranscribeRequest):
         segments, info = model.transcribe(
             io.BytesIO(audio_bytes),
             language=lang,
-            beam_size=1,                # beam_size=1 keeps latency low for streaming
-            vad_filter=True,            # drop silence — helps the 500ms-chunk pipeline
+            beam_size=1,                # greedy decoding — fastest
+            best_of=1,                  # no sampling alternatives — fastest
+            temperature=0,              # deterministic, skips fallback decoding passes
+            condition_on_previous_text=False,  # don't reprocess prior context each clip
+            vad_filter=True,            # drop silence inside the clip
         )
         text = " ".join(s.text.strip() for s in segments).strip()
         conf = float(getattr(info, "language_probability", 0.0) or 0.0)

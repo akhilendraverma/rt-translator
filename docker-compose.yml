@@ -35,7 +35,7 @@ services:
   tts:
     build: ./services/tts
     environment:
-      TTS_BACKEND: ${TTS_BACKEND:-pyttsx3}         # set to "coqui" for XTTS-v2
+      TTS_BACKEND: ${TTS_BACKEND:-espeak}         # set to "coqui" for XTTS-v2
     expose:
       - "8003"
 
