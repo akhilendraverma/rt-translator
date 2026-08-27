@@ -103,6 +103,6 @@ rt-translator/
 ## What's stubbed vs. real
 
 - **Real and working:** service contracts, gateway orchestration, WebSocket streaming, Docker wiring, CPU inference for all three stages, the test suite, the eval scripts.
-- **Left for you (the capstone work):** fine-tuning Whisper with LoRA, swapping in SeamlessM4T/Coqui on GPU, the FLORES-200 dataset slice, Grafana dashboards, WSS/TLS termination, and the ROC/A-B testing analyses. See `docs/ARCHITECTURE.md` for where each hooks in.
+- **Left fine-tuning Whisper with LoRA, swapping in SeamlessM4T/Coqui on GPU, the FLORES-200 dataset slice, Grafana dashboards, WSS/TLS termination, and the ROC/A-B testing analyses. See `docs/ARCHITECTURE.md` for where each hooks in.
 
 See `docs/ARCHITECTURE.md` for the detailed component-by-component mapping to the proposal.
